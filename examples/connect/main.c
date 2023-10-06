@@ -1,27 +1,35 @@
-#include <WebSocketService.cpp>
+#include <WebSocketService.h>
 #include <WiFi.h>
 
+/*
+	your connection endpoint
+*/
 const char* socketAddress = "ws://polkadot.webapi.subscan.io/socket";
-const char* ssid = "ssid"; //Enter SSID
-const char* password = "password"; //Enter Password
-const char* websockets_server_host = "serverip_or_name"; //Enter server adress
-
-WebSocketService wss(
+/*
+	Define a WebSocketService object with the following parameters:
+		- socketAddress: The address of the websocket server
+		- onMessage: A callback function that will be called when a message is received
+*/
+WebSocketService ws(
 	socketAddress,
 	[](const char* message) {
 		Serial.println(message);
 	}
 );
 
-void setup() {
-	Serial.begin(115200);
-	WiFi.begin(ssid, password);
 
+/*
+	Use your methods to ensure that esp is connected to a network
+*/
+static void ensureConnected() {
+	const char* ssid = "ssid"; //Enter SSID
+	const char* password = "password"; //Enter Password
+
+	WiFi.begin(ssid, password);
     for(int i = 0; i < 10 && WiFi.status() != WL_CONNECTED; i++) {
         Serial.print(".");
         delay(1000);
     }
-	    // Check if connected to wifi
     if(WiFi.status() != WL_CONNECTED) {
         Serial.println("No Wifi!");
         return;
@@ -29,7 +37,16 @@ void setup() {
 	Serial.println("Connected to Wifi, Connecting to server.");
 }
 
+
+/*
+	Ensure that esp is connected to a network
+*/
+void setup() {
+	Serial.begin(115200);
+	ensureConnected(); // Connect ESP to a network
+}
+
 void loop() {
-	wss.poll();
+	ws.poll();
 	delay(200);
 }
