@@ -12,24 +12,32 @@ class WebSocketService: public websockets::WebsocketsClient
 {
 	public:
 	typedef std::function<void(const String&)> MessageCallback;
+	typedef std::function<bool(const char*)> IdentityCallback;
 
 	class EventHandler {
 		public:
 		EventHandler(
 			const char *eventKey,
-			MessageCallback callback
+			MessageCallback callback,
+			const char *channel = NULL,
+			IdentityCallback identityCallback = NULL
 		);
-		~EventHandler() {};
+		~EventHandler() = default;
 		EventHandler(const EventHandler &other);
 		EventHandler &operator=(const EventHandler &other);
 
+		bool identify(const char *identity) const;
 		void execute(const String &message);
 		bool isEnabled() const;
 		void setCallback(MessageCallback callback);
 
+		bool filter(const char *channel) const;
+
 		private:
 		const char *eventKey;
 		MessageCallback callback;
+		IdentityCallback identityCallback;
+		const char *channel;
 		bool registered;
 	};
 	typedef std::unordered_map<std::string, EventHandler>::iterator EventHandlerIterator;
@@ -43,20 +51,63 @@ class WebSocketService: public websockets::WebsocketsClient
 
 	bool poll();
 
-	void registerEventHandler(const char* eventName, MessageCallback callback) {
-		eventHandlerMap.emplace(std::string(eventName), EventHandler(eventName, callback));
+	void registerEventHandler(
+		const char* eventName,
+		MessageCallback callback
+	) {
+		eventHandlerMap.emplace(
+			std::string(eventName),
+			EventHandler(
+				eventName,
+				callback
+			)
+		);
+	}
+
+	void registerEventHandler(
+		const char* eventName,
+		MessageCallback callback,
+		const char *channel
+	) {
+		eventHandlerMap.emplace(
+			std::string(eventName),
+			EventHandler(eventName, callback, channel)
+		);
+	}
+
+	void registerEventHandler(
+		const char* eventName,
+		MessageCallback callback,
+		const char *channel,
+		IdentityCallback identityCallback
+	) {
+		eventHandlerMap.emplace(
+			std::string(eventName),
+			EventHandler(
+				eventName,
+				callback,
+				channel,
+				identityCallback
+			)
+		);
 	}
 
 	protected:
-	void useHandleEvent(const char *eventKey, const String &message);	
+	void useHandleEvent(
+		const char *eventKey,
+		const String &message,
+		const char *channel = NULL,
+		const char *identity = NULL
+	);	
 	static void defaultLog(const char *message);
 
 	public:
 
 	struct MessageTraits {
-		virtual const String event() = 0;
-		virtual const String message() = 0;
-		// virtual const String reducer() = 0;
+		virtual const String type() = 0;
+		virtual const String payload() = 0;
+		virtual const String handlerHint() = 0;
+		virtual const String senderIdentity() = 0;
 	};
 
 	class Message: public MessageTraits {
@@ -64,8 +115,10 @@ class WebSocketService: public websockets::WebsocketsClient
 		Message(websockets::WebsocketsMessage);
 		Message(const char *);
 
-		const String event() override;
-		const String message() override;
+		const String type() override;
+		const String payload() override;
+		const String handlerHint() override;
+		const String senderIdentity() override;
 		const String getItem(const char *);
 		// const String reducer() override;
 

@@ -32,15 +32,31 @@ void WebSocketService::handleConnection() {
 	}
 }
 
+static bool validate(const String &reducer) {
+	return reducer.length() > 0;
+}
+
 template <class Message = WebSocketService::Message>
 void WebSocketService::setupEventDriver() {
 	this->onMessage([this](websockets::WebsocketsMessage msg){
 		try {
-			const String eventKey = Message(msg).event();
-			const String message = Message(msg).message();
-			// const String reducer = Message(msg).reducer();
-			log("Event: "); log(eventKey.c_str()); log(" Message: "); log(message.c_str()); log("\n");
- 			useHandleEvent(eventKey.c_str(), message);
+			const String eventKey
+				= Message(msg).type();
+			const String payload
+				= Message(msg).payload();
+			const String reducer
+				= Message(msg).handlerHint();
+			const String senderIdentity
+				= Message(msg).senderIdentity();
+			log("Event: "); log(eventKey.c_str()); log(" Message: ");
+			log(payload.c_str()); log("\n");
+			log("Full msg: "); log(msg.c_str()); log("\n");
+ 			useHandleEvent(
+				eventKey.c_str(),
+				payload,
+				validate(reducer) ? reducer.c_str() : nullptr,
+				validate(senderIdentity) ? senderIdentity.c_str() : nullptr
+			);
 		} catch (const std::exception& e) {
 			log("Exception caught: "); log(e.what()); log("\n");
 			connected = false;
@@ -48,12 +64,38 @@ void WebSocketService::setupEventDriver() {
 	});
 }
 
-void WebSocketService::useHandleEvent(const char *eventKey, const String &message) {
-	EventHandlerIterator it = eventHandlerMap.find(std::string(eventKey));
+static void execute(
+	WebSocketService::EventHandler &handler,
+	const String &payload,
+	const char *identity
+) {
+	if (identity != nullptr) {
+		Serial.println("Executing with identity");
+		Serial.println(payload);
+		Serial.println(identity);
+		if (handler.identify(identity)) {
+			handler.execute(payload);
+		}
+	} else {
+		handler.execute(payload);
+	}
+}
+
+void WebSocketService::useHandleEvent(
+	const char *eventKey,
+	const String &payload,
+	const char *channel, /*= nullptr*/
+	const char *identity /*= nullptr*/
+) {
+	EventHandlerIterator it 
+		= eventHandlerMap
+			.find(std::string(eventKey));
 	if (it != eventHandlerMap.end()) {
-		try {
-			it->second.execute(message);
-		} catch (const std::exception &e) {
+		if /*not defaulted*/ (channel != nullptr) {
+			/*validate*/if (!it->second.filter(channel)) return;
+		} /*then*/ try {
+			execute(it->second, payload, identity);
+		} /*but*/ catch (const std::exception &e) {
 			log("Exception: ");  log(e.what()); log("\n");
 			connected = false;
 		}

@@ -13,7 +13,7 @@
 	  "url": "https://github.com/Edvinas1122/WebSocketServiceESP32.git"
 	},
 	"license": "MIT",
-	"dependencies": {
-		"ExternalLibrary": "https://github.com/gilmaimon/ArduinoWebsockets.git"
-	  }
-  }
+	// "dependencies": {
+	// 	"ExternalLibrary": "https://github.com/gilmaimon/ArduinoWebsockets.git"
+	// }
+}
